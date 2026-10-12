@@ -4,7 +4,7 @@ import base64, json, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC, DIST = ROOT / "src", ROOT
-SW_VERSION = "cica-v1.0.1"
+SW_VERSION = "cica-v1.1.0"
 
 def b64(p):
     return base64.b64encode((SRC / p).read_bytes()).decode()

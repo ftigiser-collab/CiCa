@@ -55,6 +55,14 @@ a{color:var(--ca)}
 .scale.flash{animation:flash 1.2s ease-out}
 @keyframes flash{0%{background:#FFF2B3}100%{background:var(--paper)}}
 
+/* ---------- Kombinationswarnung ---------- */
+.combo-wrap:empty{display:none}
+.combo-wrap{max-width:1180px;margin:0 auto;padding:0 16px 10px}
+.combo{display:block;border-radius:8px;padding:7px 12px;font-size:14.5px;font-weight:700;text-decoration:none;color:var(--ink)}
+.combo.bad{background:var(--bad-bg);box-shadow:inset 4px 0 0 var(--bad)}
+.combo.warn{background:var(--warn-bg);box-shadow:inset 4px 0 0 var(--warn)}
+.combowarn{margin:6px 0;font-size:15px;color:var(--warn)}
+
 /* ---------- Seitenrahmen ---------- */
 main{max-width:1180px;margin:0 auto;padding:20px 16px 64px}
 h1{font-size:28px;line-height:1.2;margin:4px 0 6px}

@@ -71,6 +71,14 @@ a{color:var(--ca)}
 .scale.flash{animation:flash 1.2s ease-out}
 @keyframes flash{0%{background:#FFF2B3}100%{background:var(--paper)}}
 
+/* ---------- Kombinationswarnung ---------- */
+.combo-wrap:empty{display:none}
+.combo-wrap{max-width:1180px;margin:0 auto;padding:0 16px 10px}
+.combo{display:block;border-radius:8px;padding:7px 12px;font-size:14.5px;font-weight:700;text-decoration:none;color:var(--ink)}
+.combo.bad{background:var(--bad-bg);box-shadow:inset 4px 0 0 var(--bad)}
+.combo.warn{background:var(--warn-bg);box-shadow:inset 4px 0 0 var(--warn)}
+.combowarn{margin:6px 0;font-size:15px;color:var(--warn)}
+
 /* ---------- Seitenrahmen ---------- */
 main{max-width:1180px;margin:0 auto;padding:20px 16px 64px}
 h1{font-size:28px;line-height:1.2;margin:4px 0 6px}
@@ -249,6 +257,7 @@ footer{max-width:1180px;margin:0 auto;padding:0 16px 40px;color:var(--ink3);font
     </nav>
   </div>
   <div class="strip" id="strip" aria-label="Aktuelle Geräteeinstellung"></div>
+  <div class="combo-wrap" id="combo"></div>
 </header>
 <main id="view"></main>
 <footer id="foot"></footer>
@@ -256,7 +265,7 @@ footer{max-width:1180px;margin:0 auto;padding:0 16px 40px;color:var(--ink3);font
 <script>
 'use strict';
 /* CiCa-Buddy – CVVHDF mit regionaler Citratantikoagulation nach Marburger Therapieempfehlung */
-const VERSION = '1.0.1';
+const VERSION = '1.1';
 const VDATE = '12.10.2026';
 
 /* ================= Zustand ================= */
@@ -297,6 +306,7 @@ function D(s){
     pbp, citH, eff, conv,
     effDose: eff / s.kg, ufDose: conv / s.kg,
     ff: conv / (plasma + pbp) * 100,
+    ffPost: (s.sub + s.net) / Math.max(1, plasma) * 100,   // Eindickung: Postdilution + Entzug je Plasmafluss
     hktEnd: s.hkt * (s.bfr*60) / Math.max(1, s.bfr*60 - s.sub - s.net)
   };
 }
@@ -389,6 +399,28 @@ function accum(){
   return {ratio, ag, agc, crit, yes, level, lac, reasons, susp: level === 'bad' || level === 'warn'};
 }
 
+/* ================= Plausibilität der Kombination ================= */
+// Marburg-Tabelle: PBP = Dialysat = 10 × BFR (ml/h je ml/min), Substituat = 5 × BFR
+function combos(s){
+  s = s || S;
+  const d = D(s), out = [];
+  if(d.ffPost > 25) out.push({id:'ff', lvl:'bad', t:`Eindickung im Filter ${f0(d.ffPost)} %`, a:'Substituat und Netto-Entzug machen mehr als 25 % des Plasmaflusses aus – hohes Clotting-Risiko. Substituat oder Entzug senken bzw. Blutfluss erhöhen.'});
+  else if(d.ffPost > 20) out.push({id:'ff', lvl:'warn', t:`Eindickung im Filter ${f0(d.ffPost)} %`, a:'Substituat und Netto-Entzug liegen über 20 % des Plasmaflusses – das Clotting-Risiko steigt.'});
+  const fd = s.dial / (10 * s.bfr);
+  if(fd > 1.5) out.push({id:'dr', lvl:'info', t:`Viel Dialysat für diesen Blutfluss (${f1(fd)}-fach der Marburg-Relation)`, a:`Die Tabelle nimmt bei ${f0(s.bfr)} ml/min ${f0(10 * s.bfr)} ml/h. Mehr Dialysat entfernt mehr Citrat: Neigung zu Azidose, mehr K⁺-, Phosphat- und Mg²⁺-Verlust, höherer Ca-Bedarf. Sinnvoll vor allem zur Korrektur einer Alkalose oder Hyperkaliämie.`});
+  else if(fd < 0.5) out.push({id:'dr', lvl:'info', t:`Wenig Dialysat für diesen Blutfluss (${f1(fd)}-fach der Marburg-Relation)`, a:`Die Tabelle nimmt bei ${f0(s.bfr)} ml/min ${f0(10 * s.bfr)} ml/h. Mehr Citrat erreicht den Patienten: Neigung zu Alkalose, bei eingeschränkter Leber zur Akkumulation, weniger kleine Clearance. Sinnvoll vor allem zur Korrektur einer Azidose.`});
+  if(d.effDose < 20) out.push({id:'dl', lvl:'warn', t:`Ablaufdosis ${f0(d.effDose)} ml/kg/h`, a:'Unter der S3-Dosis von 20–25 ml/kg/h – Pausen und Filterwechsel senken die gelieferte Dosis zusätzlich.'});
+  if(d.ufDose > 35) out.push({id:'uh', lvl:'warn', t:`Konvektive Dosis ${f0(d.ufDose)} ml/kg/h`, a:'Deutlich über der Marburger UF-Dosis von 20–25 ml/kg/h, Richtung High-Volume-Hämofiltration (bei Sepsis laut S3 nicht empfohlen). Hohe Verluste an Elektrolyten, Aminosäuren und Medikamenten.'});
+  else if(d.effDose > 45) out.push({id:'dh', lvl: d.effDose > 50 ? 'warn' : 'info', t:`Ablaufdosis ${f0(d.effDose)} ml/kg/h`, a:'Über dem Bereich der Marburg-Tabelle (38–42): mehr Verluste an Elektrolyten, Aminosäuren, Vitaminen und Medikamenten.'});
+  if(s.bfr < 100) out.push({id:'bl', lvl:'info', t:`Blutfluss ${f0(s.bfr)} ml/min`, a:'Unter 100 nur in der Startphase oder bei sehr kleinem Patienten (Tabellenzeilen 50–55 kg). Langsamer Fluss fördert Clotting.'});
+  return out;
+}
+function combosHTML(){
+  const c = combos();
+  if(!c.length) return '<ul class="res"><li class="ok"><b>Kombination plausibel</b><div class="act">Eindickung, Dialysat-Relation und Dosis im Rahmen.</div></li></ul>';
+  return '<ul class="res">' + c.map(x => `<li class="${x.lvl}"><b>${x.t}</b><div class="act">${x.a}</div></li>`).join('') + '</ul>';
+}
+
 /* ================= Schrittlisten ================= */
 const EMZ_BFR = 'Schrittweite 20 ml/min ist ein Praxis-Hinweis – Marburg nennt für den Blutfluss keine Zahl.';
 function stepsAlk(){
@@ -456,12 +488,21 @@ function applyBtn(obj, label){
   return `<div class="apply"><button class="btn sm ghost" type="button" data-apply='${esc(JSON.stringify(obj))}' data-label="${esc(label)}">Am Gerät umgestellt</button></div>`;
 }
 function stepHTML(st){
+  let extra = '';
+  if(st.k && st.to != null && st.to !== S[st.k] && !st.blocked){
+    const before = new Set(combos().map(c => c.id + c.lvl));
+    const neu = combos(withS({[st.k]: st.to})).filter(c => !before.has(c.id + c.lvl));
+    const bad = neu.find(c => c.lvl === 'bad');
+    if(bad) st = Object.assign({}, st, {blocked: `Ergäbe eine gefährliche Kombination – ${bad.t}. ${bad.a}`});
+    else extra = neu.filter(c => c.lvl === 'warn').map(c => `<p class="combowarn"><b>Danach:</b> ${c.t}. ${c.a}</p>`).join('');
+  }
   let h = `<li class="${st.blocked ? 'blocked' : ''}"><div class="stitle">${st.title}</div>`;
   if(st.k && st.to != null && st.to !== S[st.k]) h += changeHTML(st.k, S[st.k], st.to);
   if(st.custom) h += st.custom;
   if(st.blocked) h += `<p class="blockmsg">${st.blocked}</p>`;
   if(st.why) h += `<p class="why"><b>Warum:</b> ${st.why}</p>`;
   if(st.watch) h += `<p class="watch"><b>Achte auf:</b> ${st.watch}</p>`;
+  if(extra) h += extra;
   if(st.emz && !st.blocked) h += `<p class="note eminenz">${st.emz}</p>`;
   if(st.k && !st.blocked && st.to != null && st.to !== S[st.k]) h += applyBtn({[st.k]:st.to}, `${NAME[st.k]} jetzt ${fv(st.k, st.to)} ${UNIT[st.k]}`);
   return h + '</li>';
@@ -654,9 +695,9 @@ PG.clotting = {
       {title:'Zugang prüfen', custom:'<p>Stark negativer Ansaugdruck, Katheterlage, Knick. Vertauschte Lumen erhöhen die Rezirkulation.</p>', why:'Ein schlechter Zugang bremst den Fluss und verfälscht obendrein die Ca-Werte.'},
       {title:'Blutfluss nicht zu langsam', custom:'<p>Start mit 60 ml/min, bei stabilem Kreislauf innerhalb weniger Minuten auf Ziel-BFR.</p>', why:'Marburg: Langsames Hochfahren erhöht das Clotting, weil die Filtrationsrate für kleine Blutflüsse zu hoch ist.'},
       {title:'Eindickung im Filter senken',
-        custom:`<div class="derived"><div><small>Filtrationsfraktion</small><strong>${f0(d.ff)} %</strong></div><div><small>Hkt am Filterende</small><strong>≈ ${f0(d.hktEnd)} %</strong></div></div><p class="small muted">Berechnet mit Hkt ${f0(S.hkt)} % aus den Einstellungen. Filtrationsfraktion = (PBP + Substituat + Entzug) ÷ (Plasmafluss + PBP).</p>`,
+        custom:`<div class="derived"><div><small>Eindickung (Substituat + Entzug)</small><strong>${f0(d.ffPost)} %</strong> des Plasmaflusses</div><div><small>Hkt am Filterende</small><strong>≈ ${f0(d.hktEnd)} %</strong></div></div><p class="small muted">Berechnet mit Hkt ${f0(S.hkt)} % aus den Einstellungen. Eindickung = (Substituat + Netto-Entzug) ÷ (Blutfluss × (1 − Hkt)).</p>`,
         why:'Das Substituat läuft in Postdilution: Dieses Wasser wird dem Blut im Filter zusätzlich abgepresst. Je mehr abgepresst wird, desto zäher das Blut am Filterende. Das Citrat (PBP) verdünnt vor dem Filter und dickt kaum ein.',
-        watch:`Hebel: Substituat oder Netto-Entzug senken, Blutfluss erhöhen. Faustregel für die Filtrationsfraktion: unter 20–25 %; mit Prädilution und Citrat wird mehr toleriert – mit der Marburger Standardeinstellung liegt sie rechnerisch um 29 %. Wichtiger als die Zahl ist, ob sie gegenüber der letzten gut laufenden Einstellung gestiegen ist.`}
+        watch:`Hebel: Substituat oder Netto-Entzug senken, Blutfluss erhöhen. Faustregel: unter 20–25 % (Literatur 20–30 %); die Marburger Standardeinstellung liegt bei Hkt 30 % um 12 %. Die Citrat-PBP verdünnt vorher und zählt hier nicht mit.`}
     ];
     return stepsHTML(st);
   },
@@ -897,9 +938,10 @@ function homeOut(){
   if(lac != null && lac >= 2) items.push({lvl: lac >= 4 ? 'warn' : 'info', t:`Laktat ${f1(lac)}`, a: lac >= 4 ? 'Ob Citrat noch abgebaut wird, ist fraglich – Ratio und Leber im Blick.' : 'Trend verfolgen; bei Leberversagen Ratio bestimmen.', p:'leber'});
   const m = bval('mgv'); if(m != null){ if(m < 0.7 || m > 1.1) items.push({lvl:'warn', t:`Mg²⁺ ${f2(m)}`, a:`Perfusor ${m < 0.7 ? 'erhöhen' : 'senken'}.`, p:'magnesium'}); else okList.push('Mg²⁺'); }
   const p = bval('po4'); if(p != null){ if(p < 0.8) items.push({lvl:'warn', t:`Phosphat ${f2(p)} – zu niedrig`, a:'Substituat erhöhen.', p:'phosphat'}); else if(p > 1.5) items.push({lvl:'info', t:`Phosphat ${f2(p)} – erhöht`, a:'Meist rückläufig unter CRRT.', p:'phosphat'}); else okList.push('Phosphat'); }
+  combos().filter(c => c.lvl !== 'info').forEach(c => items.push({lvl:c.lvl, t:'Einstellung prüfen: ' + c.t, a:c.a, href:'#/einstellungen'}));
   const order = {bad:0, warn:1, info:2};
   items.sort((x, y) => order[x.lvl] - order[y.lvl]);
-  let h = '<h2 style="margin-top:6px">Auswertung</h2><ul class="res">' + items.map(i => `<li class="${i.lvl}"><b>${i.t}</b>${i.a ? `<div class="act">${i.a}</div>` : ''}${i.p ? `<a class="more" href="#/p/${i.p}">Details und Warum</a>` : ''}</li>`).join('');
+  let h = '<h2 style="margin-top:6px">Auswertung</h2><ul class="res">' + items.map(i => `<li class="${i.lvl}"><b>${i.t}</b>${i.a ? `<div class="act">${i.a}</div>` : ''}${i.p ? `<a class="more" href="#/p/${i.p}">Details und Warum</a>` : i.href ? `<a class="more" href="${i.href}">Zu den Einstellungen</a>` : ''}</li>`).join('');
   if(okList.length) h += `<li class="ok"><b>Im Ziel: ${okList.join(', ')}</b></li>`;
   h += '</ul>';
   if(items.some(i => i.lvl !== 'info')) h += '<p class="hint">Pro BGA möglichst nur einen Säure-Basen-Schritt. Postfilter-Ca²⁺ 10 min, BGA 1 h nach jeder Flussänderung.</p>';
@@ -930,7 +972,7 @@ const SF = [
   {k:'sub', step:50, rng:'Empfohlen 500, möglich 200–1500. Postdilution.'},
   {k:'net', step:10, rng:'Volumenentzug pro Stunde.'},
   {k:'kg', step:1, rng:'Marburg rechnet mit Broca (Größe − 100) – oben berechnen.'},
-  {k:'hkt', step:1, rng:'Nur für Filtrationsfraktion und Eindickung.'},
+  {k:'hkt', step:1, rng:'Nur für die Eindickung im Filter.'},
   {k:'mg', step:0.5, rng:'Mg 10 %, 5 Amp. auf 50 ml = 0,4 mmol/ml. Start 1 ml/h.'}
 ];
 function setWarn(k, v){
@@ -976,7 +1018,7 @@ function weightOut(){
 }
 function settingsOut(){
   const d = D();
-  return `<div class="derived"><div><small>PBP (Citrat)</small><strong>${f0(d.pbp)}</strong> ml/h</div><div><small>Citratzufuhr</small><strong>${f1(d.citH)}</strong> mmol/h</div><div><small>Ablauf gesamt</small><strong>${f0(d.eff)}</strong> ml/h</div><div><small>Ablaufdosis</small><strong>${f0(d.effDose)}</strong> ml/kg/h</div><div><small>UF-Dosis</small><strong>${f0(d.ufDose)}</strong> ml/kg/h</div><div><small>Filtrationsfraktion</small><strong>${f0(d.ff)}</strong> %</div></div>
+  return `<div class="derived"><div><small>PBP (Citrat)</small><strong>${f0(d.pbp)}</strong> ml/h</div><div><small>Citratzufuhr</small><strong>${f1(d.citH)}</strong> mmol/h</div><div><small>Ablauf gesamt</small><strong>${f0(d.eff)}</strong> ml/h</div><div><small>Ablaufdosis</small><strong>${f0(d.effDose)}</strong> ml/kg/h</div><div><small>UF-Dosis</small><strong>${f0(d.ufDose)}</strong> ml/kg/h</div><div><small>Eindickung im Filter</small><strong>${f0(d.ffPost)}</strong> %</div></div>${combosHTML()}
   <p class="small muted">PBP = Citratdosis × BFR × 60 ÷ 18 (Prismocitrate 18 mmol/L). Das Gerät koppelt die PBP an den Blutfluss.</p>`;
 }
 
@@ -997,6 +1039,12 @@ function viewWissen(){
    <div class="formula">Ablaufdosis = (PBP + Dialysat + Substituat + Entzug) ÷ kg</div>
    <div class="formula">UF-Dosis = (PBP + Substituat + Entzug) ÷ kg</div>
    <div class="formula">Ratio = Gesamt-Ca ÷ ionisiertes Ca²⁺ (Akkumulation über 2,4)</div></div></div>
+  <div class="box" style="margin-top:14px"><h3>Was zusammenpasst</h3><ul>
+   <li><b>Marburg-Relation:</b> PBP = Dialysat = 10 × Blutfluss, Substituat = 5 × Blutfluss (ml/h je ml/min) – bei 100 ml/min also 1.000 / 1.000 / 500 ml/h. Die PBP koppelt das Gerät selbst.</li>
+   <li><b>Dialysat zu Blutfluss</b> steuert den Säure-Basen-Haushalt: mehr Dialysat je Blut → mehr Citrat entfernt → Richtung Azidose; weniger → Richtung Alkalose. Abweichungen sind der gewollte Hebel, aber kein Dauerzustand.</li>
+   <li><b>Substituat + Netto-Entzug zu Blutfluss</b> bestimmt die Eindickung im Filter: unter 20–25 % des Plasmaflusses halten, sonst clottet der Filter. Das ist die Kombination, die gefährlich werden kann.</li>
+   <li><b>Dosis:</b> Ablaufdosis nicht unter 20 ml/kg/h (S3), konvektive Dosis nicht weit über 25 ml/kg/h (Marburg).</li></ul>
+   <p class="small muted">Die App prüft diese Kombinationen bei jeder Einstellung und jedem Vorschlag. Grenzen außerhalb von Marburg und S3 (Eindickung, Dialysat-Relation) sind Orientierung.</p></div>
   <h2>Lösungen</h2>
   <div class="tw"><table><thead><tr><th>mmol/L</th><th>Citrat</th><th>Na⁺</th><th>Cl⁻</th><th>HCO₃⁻</th><th>K⁺</th><th>Ca²⁺</th><th>Mg²⁺</th><th>HPO₄²⁻</th></tr></thead><tbody>
   <tr><td>Prismocitrate 18/0 bzw. Regiocit (PBP)</td><td>18</td><td>140</td><td>86</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
@@ -1094,6 +1142,8 @@ function renderStrip(flash){
     sc('bfr', f0(S.bfr), 'ml/min') + sc('cit', f1(S.cit), 'mmol/L', 'pbp') + sc('ca', f0(S.ca), '%') +
     sc('dial', f0(S.dial), 'ml/h') + sc('sub', f0(S.sub), 'ml/h') + sc('net', f0(S.net), 'ml/h') +
     `<a class="scale dose" style="--c:var(--eff)" href="#/p/dosis"><small>Ablaufdosis</small><strong>${f0(d.effDose)}</strong><em>ml/kg/h</em></a>`;
+  const cb = combos().filter(c => c.lvl !== 'info'), el = document.getElementById('combo');
+  if(el) el.innerHTML = cb.length ? `<a class="combo ${cb.some(c => c.lvl === 'bad') ? 'bad' : 'warn'}" href="#/einstellungen">Einstellung prüfen: ${cb.map(c => c.t).join('; ')}</a>` : '';
 }
 
 /* ================= Router ================= */
