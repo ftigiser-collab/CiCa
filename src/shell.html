@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CiCa-Buddy</title>
+<meta name="description" content="CVVHDF mit regionaler Citratantikoagulation (Prismaflex/Prismax) – klinische Probleme lösen nach Marburger Therapieempfehlung">
+<meta name="theme-color" content="#13303A">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CiCa-Buddy">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+{{CSS}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#/" aria-label="CiCa-Buddy Start">
+      <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#13303A"/><path d="M44 16a20 20 0 1 0 6 18" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M50 9c3.6 4.6 5.6 8 5.6 10.6a5.6 5.6 0 0 1-11.2 0C44.4 17 46.4 13.6 50 9z" fill="#E8B400"/><circle cx="32" cy="32" r="5" fill="#7FA3E0"/></svg>
+      <b>CiCa-Buddy</b><span>CVVHDF mit Citrat</span>
+    </a>
+    <nav class="nav" aria-label="Bereiche">
+      <a href="#/" data-nav="home">Probleme</a>
+      <a href="#/einstellungen" data-nav="einstellungen">Einstellungen</a>
+      <a href="#/wissen" data-nav="wissen">Wissen</a>
+      <a href="#/abk" data-nav="abk" aria-label="Abkürzungen und Quellen">Abk.</a>
+    </nav>
+  </div>
+  <div class="strip" id="strip" aria-label="Aktuelle Geräteeinstellung"></div>
+</header>
+<main id="view"></main>
+<footer id="foot"></footer>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo" type="button">Rückgängig</button></div>
+<script>
+{{JS}}
+</script>
+</body>
+</html>

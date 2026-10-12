@@ -1,0 +1,33 @@
+{
+  "id": "/CiCa/",
+  "name": "CiCa-Buddy — CVVHDF mit Citrat",
+  "short_name": "CiCa-Buddy",
+  "description": "Klinische Probleme unter CVVHDF mit regionaler Citratantikoagulation lösen (Marburger Empfehlung, Prismaflex/Prismax).",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F2F6F5",
+  "theme_color": "#13303A",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
